@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYC Commute Checker</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <div class="logo">NYC<span>TRANSIT</span></div>
+    <div class="search-wrap">
+      <input type="text" id="address-input" placeholder="Enter an NYC address..." autocomplete="off" />
+      <button id="search-btn">GO</button>
+    </div>
+    <div class="time-badge">Weekday <span>9:30 AM</span></div>
+    <div id="token-usage" class="token-usage"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="score-panel">
+        <div class="score-label">COMMUTE SCORE</div>
+        <div class="score-row">
+          <span id="score-num">—</span>
+          <span class="score-denom">/10</span>
+        </div>
+        <div class="score-track">
+          <div id="score-fill" class="score-fill"></div>
+        </div>
+        <div id="score-desc" class="score-desc">Enter an address to calculate</div>
+      </div>
+
+      <div id="error-banner" class="error-banner" style="display:none"></div>
+      <div id="dest-list" class="dest-list"></div>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
