@@ -1,15 +1,23 @@
 import './style.css'
-import { initMap, clearMarkers, clearRoute, addOriginMarker, addDestinationMarker, fitMapToBounds } from './src/map.js'
+import { initMap, clearMarkers, clearRoute, addOriginMarker, addDestinationMarker, fitMapToBounds, addIsochroneLayer, removeIsochroneLayer, addIsochroneControl, addStationMarkers, clearStationMarkers } from './src/map.js'
 import { geocodeAddress, geocodeAllDestinations } from './src/geocode.js'
 import { getAllTransitTimes } from './src/transit.js'
 import { calculateScore, timeColor } from './src/score.js'
-import { showSkeletons, showEmptyState, renderResults, setScore, showError, hideError, setLoading } from './src/ui.js'
+import { showSkeletons, showEmptyState, renderResults, setScore, showError, hideError, setLoading, renderNearestStations, showSaveBar, initSavedPanel } from './src/ui.js'
 import { DESTINATIONS } from './src/config.js'
 import { trackMapbox, trackHere, initTokenDisplay } from './src/tokens.js'
 import { initAutocomplete } from './src/autocomplete.js'
+import { fetchIsochrone } from './src/isochrone.js'
+import { loadStations, findNearestStations, getWalkTimesToStations } from './src/stations.js'
 
-initMap()
+const map = initMap()
 initTokenDisplay()
+map.on('load', () => addIsochroneControl())
+
+initSavedPanel((address) => {
+  document.getElementById('address-input').value = address
+  runSearch()
+})
 
 let destCoords = new Array(DESTINATIONS.length).fill(null)
 geocodeAllDestinations(DESTINATIONS).then(coords => {
@@ -36,7 +44,10 @@ async function runSearch() {
   hideError()
   showSkeletons()
   clearMarkers()
+  clearStationMarkers()
   clearRoute()
+  removeIsochroneLayer()
+  renderNearestStations(null)
   setScore(null)
 
   let originCoords
@@ -58,8 +69,17 @@ async function runSearch() {
     trackMapbox(DESTINATIONS.length)
   }
 
-  const results = await getAllTransitTimes(originLng, originLat, destCoords)
+  const [results, stationsData] = await Promise.all([
+    getAllTransitTimes(originLng, originLat, destCoords),
+    loadStations()
+      .then(stations => {
+        const nearest = findNearestStations(originLat, originLng, stations, 3)
+        return getWalkTimesToStations(originLng, originLat, nearest)
+      })
+      .catch(() => []),
+  ])
   trackHere(destCoords.filter(Boolean).length)
+  trackMapbox(3) // Mapbox Directions for 3 stations
 
   results.forEach((result, i) => {
     if (destCoords[i]) {
@@ -70,11 +90,20 @@ async function runSearch() {
     }
   })
 
+  if (stationsData.length) addStationMarkers(stationsData)
+
   fitMapToBounds(originCoords, destCoords)
+
+  fetchIsochrone(originLng, originLat)
+    .then(geojson => addIsochroneLayer(geojson))
+    .catch(e => console.warn('Isochrone:', e.message))
+
   renderResults(results, destCoords)
 
   const scoreData = calculateScore(results)
   setScore(scoreData)
+  renderNearestStations(stationsData)
+  showSaveBar(address, scoreData, results)
 
   setLoading(false)
 }

@@ -29,13 +29,38 @@
           <div id="score-fill" class="score-fill"></div>
         </div>
         <div id="score-desc" class="score-desc">Enter an address to calculate</div>
+        <div id="nearest-stations" class="nearest-stations" style="display:none"></div>
+      </div>
+
+      <div id="save-bar" class="save-bar" style="display:none">
+        <button id="save-btn" class="save-btn">＋ Save this address</button>
       </div>
 
       <div id="error-banner" class="error-banner" style="display:none"></div>
+
+      <div class="panel-toggle-row">
+        <button id="toggle-results-btn" class="panel-tab active">Results</button>
+        <button id="toggle-saved-btn" class="panel-tab">Saved <span id="saved-count">0</span></button>
+      </div>
+
       <div id="dest-list" class="dest-list"></div>
     </aside>
 
-    <div id="map"></div>
+    <div id="map">
+      <div id="isochrone-legend" class="isochrone-legend" style="display:none">
+        <div class="legend-row"><span class="legend-dot" style="background:#00e5a0"></span>10 min walk</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#8b5cf6"></span>20 min walk</div>
+        <div class="legend-row"><span class="legend-dot" style="background:#3b82f6"></span>30 min walk</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="compare-modal" class="compare-modal" style="display:none">
+    <div class="compare-header">
+      <span class="compare-title">Compare Addresses</span>
+      <button id="compare-close-btn" class="compare-close">✕</button>
+    </div>
+    <div id="compare-table-wrap" class="compare-table-wrap"></div>
   </div>
 
   <script type="module" src="/main.js"></script>

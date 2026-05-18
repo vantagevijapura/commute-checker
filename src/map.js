@@ -10,6 +10,8 @@ let map
 let markers = []
 let originMarker = null
 let routeLayerIds = []
+let stationMarkers = []
+let isochroneVisible = false
 
 export function initMap() {
   map = new mapboxgl.Map({
@@ -19,6 +21,8 @@ export function initMap() {
     zoom: 11.5,
   })
   map.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
+  map.scrollZoom.disable()
+  map.on('touchstart', () => map.scrollZoom.enable())
   return map
 }
 
@@ -177,4 +181,115 @@ export function flyTo(coords, zoom = 14) {
 
 export function openMarkerPopup(index) {
   if (markers[index]) markers[index].togglePopup()
+}
+
+export function addStationMarkers(stations) {
+  stations.forEach(station => {
+    const el = document.createElement('div')
+    el.className = 'station-marker'
+    el.title = station.name
+    const marker = new mapboxgl.Marker({ element: el })
+      .setLngLat([station.lng, station.lat])
+      .addTo(map)
+    stationMarkers.push(marker)
+  })
+}
+
+export function clearStationMarkers() {
+  stationMarkers.forEach(m => m.remove())
+  stationMarkers = []
+}
+
+export function addIsochroneLayer(geojson) {
+  removeIsochroneLayer()
+
+  const draw = () => {
+    map.addSource('isochrone', { type: 'geojson', data: geojson })
+
+    const configs = [
+      { filter: ['==', ['get', 'contour'], 30], color: '#3b82f6', fillOpacity: 0.08, lineOpacity: 0.6 },
+      { filter: ['==', ['get', 'contour'], 20], color: '#8b5cf6', fillOpacity: 0.12, lineOpacity: 0.6 },
+      { filter: ['==', ['get', 'contour'], 10], color: '#00e5a0', fillOpacity: 0.18, lineOpacity: 0.6 },
+    ]
+
+    configs.forEach((cfg, i) => {
+      map.addLayer({
+        id: `isochrone-fill-${i}`,
+        type: 'fill',
+        source: 'isochrone',
+        filter: cfg.filter,
+        paint: { 'fill-color': cfg.color, 'fill-opacity': cfg.fillOpacity },
+      })
+      map.addLayer({
+        id: `isochrone-line-${i}`,
+        type: 'line',
+        source: 'isochrone',
+        filter: cfg.filter,
+        paint: { 'line-color': cfg.color, 'line-width': 1.5, 'line-opacity': cfg.lineOpacity },
+      })
+    })
+
+    isochroneVisible = true
+    const legend = document.getElementById('isochrone-legend')
+    if (legend) legend.style.display = 'block'
+  }
+
+  if (map.isStyleLoaded()) draw()
+  else map.once('style.load', draw)
+}
+
+export function removeIsochroneLayer() {
+  // Two-pass: layers first, then source
+  for (let i = 0; i < 3; i++) {
+    if (map.getLayer(`isochrone-fill-${i}`)) map.removeLayer(`isochrone-fill-${i}`)
+    if (map.getLayer(`isochrone-line-${i}`)) map.removeLayer(`isochrone-line-${i}`)
+  }
+  if (map.getSource('isochrone')) map.removeSource('isochrone')
+  isochroneVisible = false
+  const legend = document.getElementById('isochrone-legend')
+  if (legend) legend.style.display = 'none'
+}
+
+export function toggleIsochrone() {
+  const newVisible = !isochroneVisible
+  const vis = newVisible ? 'visible' : 'none'
+  for (let i = 0; i < 3; i++) {
+    if (map.getLayer(`isochrone-fill-${i}`)) map.setLayoutProperty(`isochrone-fill-${i}`, 'visibility', vis)
+    if (map.getLayer(`isochrone-line-${i}`)) map.setLayoutProperty(`isochrone-line-${i}`, 'visibility', vis)
+  }
+  isochroneVisible = newVisible
+  const legend = document.getElementById('isochrone-legend')
+  if (legend) legend.style.display = newVisible ? 'block' : 'none'
+  return isochroneVisible
+}
+
+export function addIsochroneControl() {
+  const btn = document.createElement('button')
+  btn.title = 'Toggle walk radius'
+  btn.innerHTML = '🚶'
+  btn.style.cssText = `
+    background: #1a1a24;
+    border: 1px solid #252535;
+    color: #e8e8f0;
+    font-size: 14px;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `
+
+  const container = document.createElement('div')
+  container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group'
+  container.appendChild(btn)
+
+  btn.addEventListener('click', () => {
+    const visible = toggleIsochrone()
+    btn.style.background = visible ? '#00e5a0' : '#1a1a24'
+    btn.style.color = visible ? '#000' : '#e8e8f0'
+  })
+
+  map.addControl({ onAdd: () => container, onRemove: () => {} }, 'bottom-right')
 }
