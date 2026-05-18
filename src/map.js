@@ -73,10 +73,10 @@ export function addDestinationMarker(lng, lat, dest, result, index) {
 }
 
 export function clearRoute() {
-  routeLayerIds.forEach(id => {
-    if (map.getLayer(id)) map.removeLayer(id)
-    if (map.getSource(id)) map.removeSource(id)
-  })
+  // Layers must all be removed before any source removal —
+  // Mapbox throws if you remove a source that still has a dependent layer.
+  routeLayerIds.forEach(id => { if (map.getLayer(id)) map.removeLayer(id) })
+  routeLayerIds.forEach(id => { if (map.getSource(id)) map.removeSource(id) })
   routeLayerIds = []
 }
 
