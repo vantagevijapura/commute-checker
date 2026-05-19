@@ -23,27 +23,20 @@ export async function getTransitTime(originLat, originLng, destLat, destLng) {
     throw new Error('No transit route found')
   }
 
-  // Parse the best route (index 0) for timing, walk, polyline, and transfers
-  const { minutes, walkMinutes, transfers, modes, routeSections } = parseSections(data.routes[0].sections)
+  const alternatives = data.routes.slice(0, 3).map(route => {
+    const { minutes, walkMinutes, transfers, modes, routeSections } = parseSections(route.sections)
+    const lines = route.sections
+      .filter(s => s.type === 'transit')
+      .map(s => ({
+        name: s.transport?.name,
+        mode: s.transport?.mode,
+        stops: (s.intermediateStops?.length ?? 0) + 1,
+      }))
+    return { minutes, walkMinutes, transfers, modes, lines, routeSections }
+  })
 
-  // Collect unique line names across ALL alternatives so we surface e.g. "2 3" not just "3"
-  const linesSeen = new Set()
-  const lines = []
-
-  for (const route of data.routes) {
-    for (const section of route.sections) {
-      if (section.type !== 'transit') continue
-      const name = section.transport?.name
-      const mode = section.transport?.mode
-      const stops = (section.intermediateStops?.length ?? 0) + 1
-      if (name && !linesSeen.has(name)) {
-        linesSeen.add(name)
-        lines.push({ name, mode, stops })
-      }
-    }
-  }
-
-  return { minutes, walkMinutes, transfers, modes, lines, routeSections }
+  const best = alternatives[0]
+  return { ...best, alternatives }
 }
 
 function parseSections(sections) {

@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NYC Commute Checker</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <header>
@@ -14,26 +13,35 @@
       <button id="search-btn">GO</button>
     </div>
     <div class="time-badge">Weekday <span>9:30 AM</span></div>
-    <div id="token-usage" class="token-usage"></div>
+    <button id="settings-btn" class="settings-btn" title="Settings">&#9881;</button>
   </header>
 
   <div class="layout">
     <aside class="sidebar">
       <div class="score-panel">
-        <div class="score-label">COMMUTE SCORE</div>
-        <div class="score-row">
-          <span id="score-num">—</span>
-          <span class="score-denom">/10</span>
+        <div class="score-dual">
+          <div class="score-block">
+            <div class="score-block-label">COMMUTE SCORE</div>
+            <div class="score-block-main">
+              <span id="score-num">&#8212;</span>
+              <span class="score-denom">/100</span>
+            </div>
+            <div class="score-track"><div id="score-fill" class="score-fill"></div></div>
+          </div>
+          <div class="score-block score-block--right">
+            <div class="score-block-label">NOISE SCORE</div>
+            <div class="score-block-main">
+              <span id="soundscore-num">&#8212;</span>
+              <span class="score-denom">/100</span>
+            </div>
+            <div class="score-track"><div id="soundscore-fill" class="score-fill"></div></div>
+          </div>
         </div>
-        <div class="score-track">
-          <div id="score-fill" class="score-fill"></div>
-        </div>
-        <div id="score-desc" class="score-desc">Enter an address to calculate</div>
         <div id="nearest-stations" class="nearest-stations" style="display:none"></div>
       </div>
 
       <div id="save-bar" class="save-bar" style="display:none">
-        <button id="save-btn" class="save-btn">＋ Save this address</button>
+        <button id="save-btn" class="save-btn">+ Save this address</button>
       </div>
 
       <div id="error-banner" class="error-banner" style="display:none"></div>
@@ -43,10 +51,26 @@
         <button id="toggle-saved-btn" class="panel-tab">Saved <span id="saved-count">0</span></button>
       </div>
 
+      <div class="category-filter-row">
+        <button class="cat-filter-btn" data-cat="work" title="Work">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg><span>Work</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="park" title="Park">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-7"/><polygon points="12,2 4,14 20,14"/></svg><span>Park</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="social" title="Social">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21c0-4 2.7-6 6-6s6 2 6 6"/><circle cx="18" cy="8" r="2"/><path d="M15 21c0-2.5 1.3-4 3-4s3 1.5 3 4"/></svg><span>Social</span>
+        </button>
+      </div>
+
       <div id="dest-list" class="dest-list"></div>
     </aside>
 
     <div id="map">
+      <div class="map-overlay-controls">
+        <button id="isochrone-toggle-btn" class="map-overlay-btn" title="Toggle walk radius">🚶</button>
+        <button id="soundscore-toggle-btn" class="map-overlay-btn" title="Toggle noise heatmap">🔊</button>
+      </div>
       <div id="isochrone-legend" class="isochrone-legend" style="display:none">
         <div class="legend-row"><span class="legend-dot" style="background:#00e5a0"></span>10 min walk</div>
         <div class="legend-row"><span class="legend-dot" style="background:#8b5cf6"></span>20 min walk</div>
@@ -58,9 +82,118 @@
   <div id="compare-modal" class="compare-modal" style="display:none">
     <div class="compare-header">
       <span class="compare-title">Compare Addresses</span>
-      <button id="compare-close-btn" class="compare-close">✕</button>
+      <button id="compare-close-btn" class="compare-close">&#x2715;</button>
     </div>
     <div id="compare-table-wrap" class="compare-table-wrap"></div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="settings-modal" style="display:none">
+    <div class="settings-inner">
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+        <button id="settings-close-btn" class="settings-close">&#x2715;</button>
+      </div>
+
+      <div class="settings-body">
+
+        <!-- DISPLAY -->
+        <div class="settings-section">
+          <div class="settings-section-label">DISPLAY</div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Theme</span>
+            <div class="settings-btn-group" id="theme-btn-group">
+              <button class="settings-opt-btn" data-theme="dark">Dark</button>
+              <button class="settings-opt-btn" data-theme="light">Light</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Map style</span>
+            <div class="settings-btn-group" id="mapstyle-btn-group">
+              <button class="settings-opt-btn" data-mapstyle="dark">Dark</button>
+              <button class="settings-opt-btn" data-mapstyle="light">Light</button>
+              <button class="settings-opt-btn" data-mapstyle="streets">Streets</button>
+              <button class="settings-opt-btn" data-mapstyle="satellite">Satellite</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Walk radius overlay</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-isochrone">
+              <span class="settings-toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Noise heatmap</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-soundscore">
+              <span class="settings-toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Times on pins</span>
+            <label class="settings-toggle">
+              <input type="checkbox" id="setting-pin-times" checked>
+              <span class="settings-toggle-track"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Marker style</span>
+            <div class="settings-btn-group" id="markerstyle-btn-group">
+              <button class="settings-opt-btn active" data-markerstyle="dot">Dot</button>
+              <button class="settings-opt-btn" data-markerstyle="pill">Pill</button>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-row-label">Cards</span>
+            <div class="settings-btn-group" id="cardmode-btn-group">
+              <button class="settings-opt-btn active" data-cardmode="expanded">Expanded</button>
+              <button class="settings-opt-btn" data-cardmode="compact">Compact</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- API USAGE -->
+        <div class="settings-section">
+          <div class="settings-section-label">API USAGE</div>
+          <div id="token-usage" class="token-usage"></div>
+        </div>
+
+        <!-- DESTINATIONS -->
+        <div class="settings-section">
+          <div class="settings-section-label">DESTINATIONS</div>
+          <div id="settings-poi-list" class="settings-poi-list"></div>
+          <div class="settings-add-form">
+            <div class="settings-add-title">Add destination</div>
+            <div class="settings-form-row">
+              <input id="poi-nickname" class="settings-input" placeholder="Nickname (optional, e.g. Ashish)" />
+            </div>
+            <div class="settings-form-row">
+              <input id="poi-name" class="settings-input" placeholder="Name" />
+              <input id="poi-address" class="settings-input" placeholder="Full address, New York, NY" autocomplete="off" />
+            </div>
+            <div class="settings-form-row">
+              <select id="poi-category" class="settings-select">
+                <option value="work">Work</option>
+                <option value="park">Park</option>
+                <option value="social">Social</option>
+              </select>
+              <input id="poi-color" class="settings-color" type="color" value="#a78bfa" title="Marker color" />
+              <button id="poi-add-btn" class="settings-add-btn">Add</button>
+            </div>
+          </div>
+          <button id="poi-reset-btn" class="settings-reset-btn">Reset to defaults</button>
+        </div>
+
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/main.js"></script>

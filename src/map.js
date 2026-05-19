@@ -1,10 +1,12 @@
 import mapboxgl from 'mapbox-gl'
 import { decode } from '@here/flexpolyline'
-import { MAPBOX_TOKEN } from './config.js'
+import { MAPBOX_TOKEN, HOWLOUD_KEY } from './config.js'
 import { subwayBullet, lineColorHex } from './lines.js'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 mapboxgl.accessToken = MAPBOX_TOKEN
+
+const SOUNDSCORE_TILE = `https://api.howloud.com/v2/tiles/score/{z}/{x}/{y}.png?x-api-key=${HOWLOUD_KEY}`
 
 let map
 let markers = []
@@ -12,6 +14,7 @@ let originMarker = null
 let routeLayerIds = []
 let stationMarkers = []
 let isochroneVisible = false
+let soundscoreVisible = false
 
 export function initMap() {
   map = new mapboxgl.Map({
@@ -21,8 +24,6 @@ export function initMap() {
     zoom: 11.5,
   })
   map.addControl(new mapboxgl.NavigationControl(), 'bottom-right')
-  map.scrollZoom.disable()
-  map.on('touchstart', () => map.scrollZoom.enable())
   return map
 }
 
@@ -50,8 +51,14 @@ export function addOriginMarker(lng, lat, label) {
 
 export function addDestinationMarker(lng, lat, dest, result, index) {
   const el = document.createElement('div')
-  el.className = 'dest-marker'
   el.style.setProperty('--dest-color', dest.color)
+
+  if (result && !result.error) {
+    el.className = 'dest-marker'
+    el.textContent = result.minutes
+  } else {
+    el.className = 'dest-marker dest-marker--error'
+  }
 
   const walkStr = result && !result.error && result.walkMinutes > 0
     ? `<div class="popup-walk">🚶 ${result.walkMinutes} min walk</div>`
@@ -175,6 +182,22 @@ export function fitMapToBounds(originCoords, destCoords) {
   map.fitBounds(bounds, { padding: 70, maxZoom: 13, duration: 1200 })
 }
 
+export const MAPBOX_STYLES = {
+  dark: 'mapbox://styles/mapbox/dark-v11',
+  light: 'mapbox://styles/mapbox/light-v11',
+  streets: 'mapbox://styles/mapbox/streets-v12',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+}
+
+export function setPinTimesVisible(visible) {
+  document.getElementById('map')?.classList.toggle('hide-pin-times', !visible)
+}
+
+export function setMapStyle(styleUrl, onReady) {
+  map.setStyle(styleUrl)
+  map.once('style.load', onReady)
+}
+
 export function flyTo(coords, zoom = 14) {
   map.flyTo({ center: coords, zoom, duration: 800 })
 }
@@ -264,32 +287,48 @@ export function toggleIsochrone() {
 }
 
 export function addIsochroneControl() {
-  const btn = document.createElement('button')
-  btn.title = 'Toggle walk radius'
-  btn.innerHTML = '🚶'
-  btn.style.cssText = `
-    background: #1a1a24;
-    border: 1px solid #252535;
-    color: #e8e8f0;
-    font-size: 14px;
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  `
+  // Button is now a plain HTML element in index.html — no map.addControl needed
+}
 
-  const container = document.createElement('div')
-  container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group'
-  container.appendChild(btn)
+// ── SOUNDSCORE TILE LAYER ─────────────────────────────
+function firstSymbolLayerId() {
+  return map.getStyle()?.layers?.find(l => l.type === 'symbol')?.id
+}
 
-  btn.addEventListener('click', () => {
-    const visible = toggleIsochrone()
-    btn.style.background = visible ? '#00e5a0' : '#1a1a24'
-    btn.style.color = visible ? '#000' : '#e8e8f0'
-  })
+export function addSoundscoreLayer() {
+  removeSoundscoreLayer()
+  const draw = () => {
+    map.addSource('soundscore-tiles', {
+      type: 'raster',
+      tiles: [SOUNDSCORE_TILE],
+      tileSize: 256,
+      attribution: '© HowLoud',
+    })
+    map.addLayer({
+      id: 'soundscore-layer',
+      type: 'raster',
+      source: 'soundscore-tiles',
+      paint: { 'raster-opacity': 0.55 },
+    }, firstSymbolLayerId())
+    soundscoreVisible = true
+  }
+  if (map.isStyleLoaded()) draw()
+  else map.once('style.load', draw)
+}
 
-  map.addControl({ onAdd: () => container, onRemove: () => {} }, 'bottom-right')
+export function removeSoundscoreLayer() {
+  if (map.getLayer('soundscore-layer')) map.removeLayer('soundscore-layer')
+  if (map.getSource('soundscore-tiles')) map.removeSource('soundscore-tiles')
+  soundscoreVisible = false
+}
+
+export function toggleSoundscoreLayer() {
+  soundscoreVisible ? removeSoundscoreLayer() : addSoundscoreLayer()
+  return soundscoreVisible
+}
+
+export function isSoundscoreLayerVisible() { return soundscoreVisible }
+
+export function addSoundscoreControl() {
+  // Button is now a plain HTML element in index.html — no map.addControl needed
 }
