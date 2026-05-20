@@ -100,10 +100,16 @@ export function drawRoute(routeSections) {
       if (!section.polyline) return
 
       let coords
-      try {
-        const decoded = decode(section.polyline)
-        coords = decoded.polyline.map(([lat, lng]) => [lng, lat])
-      } catch {
+      if (section.coordinates) {
+        coords = section.coordinates
+      } else if (section.polyline) {
+        try {
+          const decoded = decode(section.polyline)
+          coords = decoded.polyline.map(([lat, lng]) => [lng, lat])
+        } catch {
+          return
+        }
+      } else {
         return
       }
 
@@ -160,14 +166,14 @@ export function fitRouteBounds(routeSections) {
   let hasPoints = false
 
   routeSections?.forEach(section => {
-    if (!section.polyline) return
-    try {
-      const decoded = decode(section.polyline)
-      decoded.polyline.forEach(([lat, lng]) => {
-        bounds.extend([lng, lat])
-        hasPoints = true
-      })
-    } catch { /* skip */ }
+    if (section.coordinates) {
+      section.coordinates.forEach(([lng, lat]) => { bounds.extend([lng, lat]); hasPoints = true })
+    } else if (section.polyline) {
+      try {
+        const decoded = decode(section.polyline)
+        decoded.polyline.forEach(([lat, lng]) => { bounds.extend([lng, lat]); hasPoints = true })
+      } catch { /* skip */ }
+    }
   })
 
   if (hasPoints) {
@@ -328,6 +334,64 @@ export function toggleSoundscoreLayer() {
 }
 
 export function isSoundscoreLayerVisible() { return soundscoreVisible }
+
+// ── TRANSIT COVERAGE SCAN ─────────────────────────────
+export function addCoverageLayer(points) {
+  const features = points
+    .filter(p => p.minutes !== null)
+    .map(p => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      properties: { minutes: p.minutes },
+    }))
+  const geojson = { type: 'FeatureCollection', features }
+
+  const existing = map.getSource('coverage')
+  if (existing) { existing.setData(geojson); return }
+
+  const draw = () => {
+    map.addSource('coverage', { type: 'geojson', data: geojson })
+    map.addLayer({
+      id: 'coverage-circles',
+      type: 'circle',
+      source: 'coverage',
+      paint: {
+        'circle-radius': 22,
+        'circle-blur': 0.6,
+        'circle-opacity': 0.72,
+        'circle-color': [
+          'step', ['get', 'minutes'],
+          '#00e5a0', 15,
+          '#4ade80', 20,
+          '#a3e635', 25,
+          '#facc15', 30,
+          '#fb923c', 38,
+          '#f87171', 999, '#9ca3af',
+        ],
+      },
+    })
+    map.addLayer({
+      id: 'coverage-labels',
+      type: 'symbol',
+      source: 'coverage',
+      layout: {
+        'text-field': ['concat', ['to-string', ['get', 'minutes']], 'm'],
+        'text-size': 10,
+        'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+      },
+      paint: { 'text-color': '#fff', 'text-halo-color': 'rgba(0,0,0,0.4)', 'text-halo-width': 1 },
+    })
+  }
+
+  if (map.isStyleLoaded()) draw()
+  else map.once('style.load', draw)
+}
+
+export function removeCoverageLayer() {
+  if (map.getLayer('coverage-labels')) map.removeLayer('coverage-labels')
+  if (map.getLayer('coverage-circles')) map.removeLayer('coverage-circles')
+  if (map.getSource('coverage')) map.removeSource('coverage')
+}
 
 export function addSoundscoreControl() {
   // Button is now a plain HTML element in index.html — no map.addControl needed

@@ -949,6 +949,13 @@ header {
 .map-overlay-btn:hover { border-color: var(--accent); }
 .map-overlay-btn.active { background: var(--accent); border-color: var(--accent); }
 
+.coverage-scan-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+  font-size: 10px;
+  letter-spacing: -0.5px;
+}
+
 .isochrone-legend {
   position: absolute;
   bottom: 90px;
@@ -1399,8 +1406,48 @@ header {
 }
 
 .dest-list.compact .dest-card { padding: 8px 10px 6px; }
-.dest-list.compact .alt-row:not(.alt-row--best) { display: none; }
+.dest-list.compact .alt-row:not(.alt-row--best):not(.alt-row--walk-only) { display: none; }
 .dest-list.compact .alt-row--best { padding: 2px 4px; }
 .dest-list.compact .alts-hint { display: block; }
 .dest-list.compact .progress-track { display: none; }
 .dest-list.compact .card-subtitle { display: none; }
+.dest-list.compact .journey-strip { display: none; }
+
+/* ── JOURNEY STRIP ───────────────────────────────────── */
+.journey-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px 4px 5px;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.journey-walk {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.journey-transit {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.journey-stops {
+  font-size: 9px;
+  color: var(--muted);
+}
+.journey-sep {
+  color: var(--border);
+  margin: 0 1px;
+}
+
+/* ── WALK-ONLY ALT ROW ───────────────────────────────── */
+.alt-row--walk-only {
+  gap: 5px;
+  border-top: 1px dashed var(--border);
+  margin-top: 2px;
+  padding-top: 5px;
+}
+.alt-walk-icon { font-size: 12px; }
+.alt-row--walk-only .alt-time { color: var(--muted) !important; font-weight: 600; }

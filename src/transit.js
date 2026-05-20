@@ -24,7 +24,7 @@ export async function getTransitTime(originLat, originLng, destLat, destLng) {
   }
 
   const alternatives = data.routes.slice(0, 3).map(route => {
-    const { minutes, walkMinutes, transfers, modes, routeSections } = parseSections(route.sections)
+    const { minutes, walkMinutes, transfers, modes, routeSections, journey } = parseSections(route.sections)
     const lines = route.sections
       .filter(s => s.type === 'transit')
       .map(s => ({
@@ -32,7 +32,7 @@ export async function getTransitTime(originLat, originLng, destLat, destLng) {
         mode: s.transport?.mode,
         stops: (s.intermediateStops?.length ?? 0) + 1,
       }))
-    return { minutes, walkMinutes, transfers, modes, lines, routeSections }
+    return { minutes, walkMinutes, transfers, modes, lines, routeSections, journey }
   })
 
   const best = alternatives[0]
@@ -45,9 +45,11 @@ function parseSections(sections) {
   let transitSections = 0
   const modes = []
   const routeSections = []
+  const journey = []
 
   for (const section of sections) {
     const duration = section.travelSummary?.duration || 0
+    const mins = Math.round(duration / 60)
     totalSeconds += duration
 
     if (section.type === 'transit') {
@@ -56,9 +58,11 @@ function parseSections(sections) {
       const name = section.transport?.name
       if (mode && !modes.includes(mode)) modes.push(mode)
       routeSections.push({ type: 'transit', lineName: name, mode, polyline: section.polyline })
+      journey.push({ type: 'transit', lineName: name, stops: (section.intermediateStops?.length ?? 0) + 1, minutes: mins })
     } else if (section.type === 'pedestrian') {
       walkSeconds += duration
-      routeSections.push({ type: 'walk', polyline: section.polyline, minutes: Math.round(duration / 60) })
+      routeSections.push({ type: 'walk', polyline: section.polyline, minutes: mins })
+      if (mins > 0) journey.push({ type: 'walk', minutes: mins })
     }
   }
 
@@ -68,6 +72,7 @@ function parseSections(sections) {
     transfers: Math.max(0, transitSections - 1),
     modes,
     routeSections,
+    journey,
   }
 }
 

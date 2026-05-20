@@ -86,9 +86,27 @@ export function renderResults(results, destCoords, onRouteClick) {
       const alts = result.alternatives ?? []
       const altsHtml = alts.map((alt, ai) => {
         const altTc = timeColor(alt.minutes)
+        const isBest = ai === 0
+
+        if (alt.isWalkOnly) {
+          return `
+            <div class="alt-row alt-row--walk-only" data-alt-index="${ai}">
+              <span class="alt-walk-icon">🚶</span>
+              <span class="alt-time" style="color:${isBest ? altTc : ''}">${alt.minutes}<span class="alt-unit"> min walk</span></span>
+            </div>
+          `
+        }
+
         const bullets = alt.lines?.map(l => subwayBullet(l.name)).join('') ?? ''
         const walk = alt.walkMinutes > 0 ? `<span class="alt-walk">🚶 ${alt.walkMinutes}m</span>` : ''
-        const isBest = ai === 0
+        const journeyStrip = isBest && alt.journey?.length > 1
+          ? `<div class="journey-strip">${alt.journey.map(leg => {
+              if (leg.type === 'walk') return `<span class="journey-walk">🚶 ${leg.minutes}m</span>`
+              const bullet = leg.lineName ? subwayBullet(leg.lineName, 14) : `<span class="journey-bus">🚌</span>`
+              return `<span class="journey-transit">${bullet}<span class="journey-stops">${leg.stops}st</span></span>`
+            }).join('<span class="journey-sep">·</span>')}</div>`
+          : ''
+
         return `
           <div class="alt-row${isBest ? ' alt-row--best' : ''}" data-alt-index="${ai}">
             <span class="alt-time" style="color:${isBest ? altTc : ''}">${alt.minutes}<span class="alt-unit"> min</span></span>
@@ -96,6 +114,7 @@ export function renderResults(results, destCoords, onRouteClick) {
             <span class="alt-xfer">${alt.transfers}x xfer</span>
             ${walk}
           </div>
+          ${journeyStrip}
         `
       }).join('')
       const extraAlts = alts.length > 1 ? alts.length - 1 : 0

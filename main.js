@@ -1,5 +1,5 @@
 import './style.css'
-import { initMap, clearMarkers, clearRoute, drawRoute, addOriginMarker, addDestinationMarker, fitMapToBounds, addIsochroneLayer, removeIsochroneLayer, toggleIsochrone, addStationMarkers, clearStationMarkers, MAPBOX_STYLES, setMapStyle, addSoundscoreLayer, removeSoundscoreLayer, toggleSoundscoreLayer, isSoundscoreLayerVisible, setPinTimesVisible } from './src/map.js'
+import { initMap, clearMarkers, clearRoute, drawRoute, addOriginMarker, addDestinationMarker, fitMapToBounds, addIsochroneLayer, removeIsochroneLayer, toggleIsochrone, addStationMarkers, clearStationMarkers, MAPBOX_STYLES, setMapStyle, addSoundscoreLayer, removeSoundscoreLayer, toggleSoundscoreLayer, isSoundscoreLayerVisible, setPinTimesVisible, addCoverageLayer, removeCoverageLayer } from './src/map.js'
 import { geocodeAddress, geocodeAllDestinations } from './src/geocode.js'
 import { getAllTransitTimes } from './src/transit.js'
 import { calculateScore, timeColor } from './src/score.js'
@@ -10,6 +10,8 @@ import { initAutocomplete } from './src/autocomplete.js'
 import { fetchIsochrone } from './src/isochrone.js'
 import { fetchSoundscore } from './src/soundscore.js'
 import { loadStations, findNearestStations, getWalkTimesToStations } from './src/stations.js'
+import { getWalkTimesToDests } from './src/walks.js'
+import { runCoverageScan } from './src/coverage.js'
 
 const map = initMap()
 initTokenDisplay()
@@ -20,6 +22,7 @@ map.on('load', () => {
 // Map overlay toggle buttons
 const isochroneBtn = document.getElementById('isochrone-toggle-btn')
 const soundscoreBtn = document.getElementById('soundscore-toggle-btn')
+const coverageBtn = document.getElementById('coverage-scan-btn')
 
 isochroneBtn.addEventListener('click', () => {
   syncIsochroneUI(toggleIsochrone())
@@ -27,6 +30,36 @@ isochroneBtn.addEventListener('click', () => {
 
 soundscoreBtn.addEventListener('click', () => {
   syncSoundscoreUI(toggleSoundscoreLayer())
+})
+
+let lastOriginCoords = null
+let coverageActive = false
+
+coverageBtn?.addEventListener('click', async () => {
+  if (!lastOriginCoords) return
+
+  if (coverageActive) {
+    removeCoverageLayer()
+    coverageActive = false
+    coverageBtn.textContent = '📡'
+    coverageBtn.classList.remove('active')
+    return
+  }
+
+  coverageBtn.disabled = true
+  coverageBtn.textContent = '0/48'
+
+  const [originLng, originLat] = lastOriginCoords
+  await runCoverageScan(originLat, originLng, (points) => {
+    addCoverageLayer(points)
+    coverageBtn.textContent = `${points.length}/48`
+  })
+
+  trackHere(48)
+  coverageActive = true
+  coverageBtn.disabled = false
+  coverageBtn.textContent = '📡'
+  coverageBtn.classList.add('active')
 })
 
 initSavedPanel((address) => {
@@ -215,6 +248,9 @@ async function runSearch() {
   clearStationMarkers()
   clearRoute()
   removeIsochroneLayer()
+  removeCoverageLayer()
+  coverageActive = false
+  if (coverageBtn) { coverageBtn.textContent = '📡'; coverageBtn.classList.remove('active') }
   renderNearestStations(null)
   renderSoundscore(null)
   setScore(null)
@@ -232,6 +268,7 @@ async function runSearch() {
     return
   }
 
+  lastOriginCoords = originCoords
   const [originLng, originLat] = originCoords
   addOriginMarker(originLng, originLat, address)
 
@@ -240,7 +277,7 @@ async function runSearch() {
     trackMapbox(DESTINATIONS.length)
   }
 
-  const [results, stationsData] = await Promise.all([
+  const [results, stationsData, walkTimes] = await Promise.all([
     getAllTransitTimes(originLng, originLat, destCoords),
     loadStations()
       .then(stations => {
@@ -248,9 +285,29 @@ async function runSearch() {
         return getWalkTimesToStations(originLng, originLat, nearest)
       })
       .catch(() => []),
+    getWalkTimesToDests(originLng, originLat, destCoords),
   ])
   trackHere(destCoords.filter(Boolean).length)
-  trackMapbox(3)
+  trackMapbox(3 + destCoords.filter(Boolean).length)
+
+  // Merge walk-only routes as final alternative on each result
+  walkTimes.forEach((walk, i) => {
+    if (!walk || !results[i] || results[i].error) return
+    if (walk.minutes > 45) return
+    const walkAlt = {
+      minutes: walk.minutes,
+      walkMinutes: walk.minutes,
+      transfers: 0,
+      lines: [],
+      modes: ['pedestrian'],
+      routeSections: walk.coordinates.length > 1
+        ? [{ type: 'walk', coordinates: walk.coordinates }]
+        : [],
+      journey: [{ type: 'walk', minutes: walk.minutes }],
+      isWalkOnly: true,
+    }
+    results[i] = { ...results[i], alternatives: [...(results[i].alternatives ?? []), walkAlt] }
+  })
 
   results.forEach((result, i) => {
     if (destCoords[i]) {
